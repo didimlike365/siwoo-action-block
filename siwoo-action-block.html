@@ -1,0 +1,365 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>시우의 액션블록</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Dodum&display=swap">
+<style>
+/* Layout: one-screen column — score strip, 8×8 board, three-piece tray */
+:root{
+  --bg:#e9eef6; --panel:#d5deec; --cell:#c4cfe0; --ink:#1d2a44; --muted:#5d6b86;
+  --p1:#e8573f; --p2:#f2a531; --p3:#3fae6b; --p4:#3a86d8; --p5:#8b5cd6; --p6:#e0487f; --p7:#1fb5b0;
+  --display:"Black Han Sans","Apple SD Gothic Neo",sans-serif;
+  --body:"Gowun Dodum","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#141a28; --panel:#1e2638; --cell:#2a3449; --ink:#eef2fa; --muted:#93a0bb; color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#141a28; --panel:#1e2638; --cell:#2a3449; --ink:#eef2fa; --muted:#93a0bb; color-scheme:dark}
+[hidden]{display:none!important}
+html,body{height:100%;margin:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);overscroll-behavior:none;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.wrap{max-width:440px;margin:0 auto;padding:12px 16px;display:flex;flex-direction:column;gap:14px;height:100%;box-sizing:border-box}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px}
+h1{font-family:var(--display);font-weight:400;font-size:1.5rem;margin:0;letter-spacing:.02em}
+.scores{display:flex;gap:16px;text-align:right;font-variant-numeric:tabular-nums}
+.scores small{display:block;font-size:.7rem;color:var(--muted);letter-spacing:.08em}
+.scores b{font-family:var(--display);font-weight:400;font-size:1.6rem;line-height:1}
+#board{position:relative;display:grid;grid-template-columns:repeat(8,1fr);gap:3px;padding:6px;background:var(--panel);border-radius:10px;aspect-ratio:1;width:100%;box-sizing:border-box;touch-action:none}
+.c{border-radius:4px;background:var(--cell);transition:transform .15s,opacity .15s}
+.c.f{box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),inset 0 2px 0 rgba(255,255,255,.25)}
+.c.ghost{opacity:.45}
+.c.hint{outline:2px solid var(--ink);outline-offset:-2px}
+.c.pop{transform:scale(.2);opacity:0}
+#tray{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;min-height:140px;align-items:center;touch-action:none;cursor:grab}
+.slot{display:flex;align-items:center;justify-content:center;height:140px}
+.piece{display:grid;gap:2px;cursor:grab}
+.piece.dim{opacity:.3}
+.piece i{width:18px;height:18px;border-radius:3px;box-shadow:inset 0 -2px 0 rgba(0,0,0,.22)}
+#float{position:fixed;left:0;top:0;pointer-events:none;display:grid;gap:3px;z-index:5}
+#float i{border-radius:4px;box-shadow:inset 0 -3px 0 rgba(0,0,0,.22),0 4px 10px rgba(0,0,0,.2)}
+#toast{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);font-family:var(--display);font-size:2rem;color:var(--ink);pointer-events:none;opacity:0;transition:opacity .2s,transform .4s;text-shadow:0 2px 0 var(--bg)}
+#toast.show{opacity:1;transform:translate(-50%,-80%)}
+#over{position:absolute;inset:0;background:color-mix(in srgb,var(--bg) 85%,transparent);border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px}
+#over h2{font-family:var(--display);font-weight:400;margin:0;font-size:2rem}
+button{font-family:var(--display);font-size:1.1rem;padding:10px 22px;border:0;border-radius:999px;background:var(--p4);color:#fff;cursor:pointer}
+button:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
+.foot{display:flex;justify-content:space-between;align-items:center;color:var(--muted);font-size:.8rem}
+.foot button{font-size:.85rem;padding:6px 14px;background:var(--cell);color:var(--ink)}
+.music{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.music span{color:var(--muted);font-size:.8rem;margin-right:2px}
+.music button{font-size:.85rem;padding:7px 12px;background:var(--cell);color:var(--ink)}
+.music button.on{background:var(--p4);color:#fff}
+#combo{--heat:var(--muted);display:flex;flex-direction:column;gap:6px;margin-top:-4px}
+.ctext{display:flex;justify-content:space-between;align-items:baseline;font-size:.8rem;color:var(--muted);min-height:1.6rem}
+#cnum{font-family:var(--display);font-weight:400;font-size:1.4rem;color:var(--heat);line-height:1;font-variant-numeric:tabular-nums}
+.bar{height:10px;border-radius:999px;background:var(--cell)}
+.bar i{display:block;height:100%;width:0;border-radius:inherit;background:var(--heat);box-shadow:0 0 10px var(--heat)}
+#combo.live .ctext{color:var(--ink)}
+#combo.last .bar i{animation:blink .25s infinite alternate}
+#combo.bump #cnum{animation:bump .35s}
+#board.flash{box-shadow:0 0 0 3px var(--heat),0 0 28px var(--heat)}
+#board{transition:box-shadow .3s}
+@keyframes blink{to{opacity:.25}}
+@keyframes bump{40%{transform:scale(1.6)}}
+@media (prefers-reduced-motion: reduce){.c,#toast{transition:none}#combo .bar i,#cnum{animation:none!important}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>시우의 액션블록</h1>
+    <div class="scores">
+      <div><small>점수</small><b id="score">0</b></div>
+      <div><small>최고</small><b id="best">0</b></div>
+    </div>
+  </header>
+  <div id="combo">
+    <div class="ctext"><span id="clabel">줄을 지우면 콤보 시작</span><b id="cnum"></b></div>
+    <div class="bar"><i id="cfill"></i></div>
+  </div>
+  <div id="board">
+    <div id="toast"></div>
+    <div id="over" hidden><h2>더 놓을 곳이 없어요</h2><div id="final"></div><button id="again">다시 하기</button></div>
+  </div>
+  <div id="tray"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
+  <div class="foot"><span>블록을 톡 누르면 회전, 끌어서 판에 놓기. 가로·세로 한 줄을 채우면 사라져요</span><button id="reset">새 게임</button></div>
+  <div class="music" role="group" aria-label="배경음악"><span>음악</span><button data-t="neon">네온 질주</button><button data-t="trap">808 붐</button><button data-t="space">우주 레이스</button><button data-t="off">끄기</button></div>
+</div>
+<div id="float" hidden></div>
+
+<script>
+/* ---------- 소리: Web Audio로 직접 합성 ---------- */
+const A={C:null,music:null,sfx:null,wet:null,on:true,timer:null,next:0,step:0,noise:null};
+const midi=n=>440*Math.pow(2,(n-69)/12);
+function initAudio(){
+  if(A.C){if(A.C.state==='suspended')A.C.resume();return}
+  const C=new (window.AudioContext||window.webkitAudioContext)();A.C=C;
+  const master=C.createGain();master.gain.value=.8;
+  const comp=C.createDynamicsCompressor();master.connect(comp);comp.connect(C.destination);
+  A.music=C.createGain();A.music.gain.value=.32;A.music.connect(master);
+  A.sfx=C.createGain();A.sfx.gain.value=.9;A.sfx.connect(master);
+  // 아르페지오용 에코
+  const d=C.createDelay();A.delay=d;d.delayTime.value=60/TRACKS[A.track].bpm*.75;const fb=C.createGain();fb.gain.value=.38;
+  const dl=C.createBiquadFilter();dl.type='lowpass';dl.frequency.value=2500;
+  A.wet=C.createGain();A.wet.gain.value=.5;A.wet.connect(d);d.connect(dl);dl.connect(fb);fb.connect(d);dl.connect(A.music);
+  const buf=C.createBuffer(1,C.sampleRate,C.sampleRate),ch=buf.getChannelData(0);for(let i=0;i<ch.length;i++)ch[i]=Math.random()*2-1;A.noise=buf;
+  if(A.on)startMusic();
+}
+function osc(type,f,t,dur,vol,dest,o={}){
+  const C=A.C,s=C.createOscillator(),g=C.createGain();s.type=type;s.frequency.setValueAtTime(f,t);
+  if(o.to)s.frequency.exponentialRampToValueAtTime(o.to,t+(o.glide||dur));
+  if(o.det)s.detune.value=o.det;
+  g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(vol,t+(o.a||.004));g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  let n=s;if(o.lp){const fl=C.createBiquadFilter();fl.type='lowpass';fl.Q.value=o.q||1;fl.frequency.setValueAtTime(o.lp,t);if(o.lpTo)fl.frequency.exponentialRampToValueAtTime(o.lpTo,t+dur);s.connect(fl);n=fl}
+  n.connect(g);g.connect(dest);if(o.send)g.connect(A.wet);s.start(t);s.stop(t+dur+.05);
+}
+function noise(t,dur,vol,dest,type='highpass',f=6000,fTo){
+  const C=A.C,s=C.createBufferSource(),fl=C.createBiquadFilter(),g=C.createGain();s.buffer=A.noise;
+  fl.type=type;fl.frequency.setValueAtTime(f,t);if(fTo)fl.frequency.exponentialRampToValueAtTime(fTo,t+dur);
+  g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  s.connect(fl);fl.connect(g);g.connect(dest);s.start(t,Math.random()*.5);s.stop(t+dur+.02);
+}
+// 124BPM 신스웨이브: Am - F - C - G
+const BPM=128,S16=60/BPM/4,PROG=[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],ARP=[0,1,2,3,2,1,0,2,1,2,3,4,3,2,1,2];
+const LEAD=[76,null,null,74,76,null,79,null,77,null,76,null,74,null,72,null];
+function playNeon(st,t,S16){
+  const M=A.music,bar=(st>>4)%4,ch=PROG[bar],s=st%16,phrase=(st>>6)%2;
+  const p=x=>x[s]!=='.';
+  if(p('x...x...x...x...'))kick(t);
+  if(p('....x.......x...'))clap(t);
+  if(p('..x...x...x...x.'))hat(t,.16,true);else hat(t,s%2?.09:.05);
+  if(bar===3&&s>=12)snare(t,.15+(s-12)*.08);
+  const B='x.xx.x.xx.x.xx.x';
+  if(B[s]==='x'){const n=ch[0]-12+(s%3===1?12:0);osc('sawtooth',midi(n),t,S16*.9,.22,M,{lp:1300,lpTo:200,q:7});osc('square',midi(n-12),t,S16*.9,.12,M,{lp:300})}
+  const a=ARP[s],note=ch[a%3]+12+12*Math.floor(a/3);
+  osc('square',midi(note),t,S16*.9,.07,M,{lp:3200,lpTo:900,send:true});
+  if(phrase===1&&LEAD[s]){const ln=LEAD[s]+(bar===1?-4:bar===3?-2:0);osc('sawtooth',midi(ln),t,S16*2.6,.06,M,{lp:2600,det:7,send:true,a:.02});osc('sawtooth',midi(ln),t,S16*2.6,.05,M,{lp:2600,det:-7,a:.02})}
+  if(s===0)[0,1,2].forEach(i=>osc('triangle',midi(ch[i]),t,S16*15,.035,M,{a:.3,lp:1400}));
+}
+function startMusic(){
+  if(!A.C||A.timer)return;A.next=A.C.currentTime+.05;
+  A.timer=setInterval(()=>{const tr=TRACKS[A.track],S=60/tr.bpm/4;while(A.next<A.C.currentTime+.15){tr.play(A.step,A.next,S);A.next+=S;A.step++}},25);
+}
+function stopMusic(){clearInterval(A.timer);A.timer=null}
+// 드럼 소리
+function kick(t,v=.9){osc('sine',165,t,.3,v,A.music,{to:40,glide:.1});osc('triangle',1000,t,.015,.25*v,A.music)}
+function snare(t,v=.45){noise(t,.16,v,A.music,'bandpass',1900);osc('triangle',210,t,.08,.5*v,A.music,{to:110})}
+function clap(t,v=.4){[0,.012,.026].forEach(d=>noise(t+d,.11,v,A.music,'bandpass',1500))}
+function hat(t,v=.1,open){noise(t,open?.18:.035,v,A.music,'highpass',8500)}
+// 808 붐: 140BPM 하프타임, 묵직한 808 베이스 + 하이햇 롤. Fm - D♭ - E♭ - C
+function bass808(n,t,dur,v,slideTo){
+  const C=A.C,o=C.createOscillator(),g=C.createGain(),ws=C.createWaveShaper();
+  if(!A.curve){const k=new Float32Array(1024);for(let i=0;i<1024;i++)k[i]=Math.tanh((i/512-1)*3);A.curve=k}
+  ws.curve=A.curve;o.type='sine';const f=midi(n);
+  o.frequency.setValueAtTime(f*2.5,t);o.frequency.exponentialRampToValueAtTime(f,t+.035);
+  if(slideTo){o.frequency.setValueAtTime(f,t+dur*.45);o.frequency.exponentialRampToValueAtTime(midi(slideTo),t+dur*.85)}
+  g.gain.setValueAtTime(v,t);g.gain.setValueAtTime(v*.85,t+dur*.55);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(ws);ws.connect(g);g.connect(A.music);o.start(t);o.stop(t+dur+.05);
+}
+function bell(n,t,v){osc('sine',midi(n),t,.5,v,A.music,{send:true});osc('sine',midi(n)*3.01,t,.18,v*.35,A.music);osc('triangle',midi(n)*2,t,.25,v*.3,A.music)}
+const T808=['x.....x...x.....','x.....x.x.....x.','x.....x...x..x..','x..x..x...x.x.x.'];
+const ROOT=[41,37,39,36],MEL808=[[77,null,75,null,72,null,null,70,72,null,null,null,68,null,70,null],[77,null,75,null,72,null,null,75,77,null,80,null,77,null,null,null],[75,null,72,null,70,null,null,68,70,null,null,72,null,70,null,68],[72,null,null,70,72,null,75,null,77,null,null,null,null,null,null,null]];
+function playTrap(st,t,S){
+  const M=A.music,s=st%16,bar=(st>>4)%4,pat=T808[bar],p=x=>x[s]!=='.';
+  if(pat[s]==='x'){
+    let nx=s+1;while(nx<16&&pat[nx]!=='x')nx++;
+    const last=nx>=16,slide=last&&s>=12?ROOT[(bar+1)%4]+12:null;
+    kick(t,.6);bass808(ROOT[bar]+(s===14||s===13?12:0),t,Math.min((nx-s)*S,S*8),.55,slide);
+  }
+  if(s===8)clap(t,.5),snare(t,.3);
+  if(bar===3&&s===15)snare(t,.2);
+  // 하이햇: 기본 8분, 마디마다 다른 롤
+  const roll=(bar%2===1&&s>=12)?3:(s===6||s===7)&&bar!==0?2:(bar===2&&s===14)?4:1;
+  if(roll>1)for(let k=0;k<roll;k++)hat(t+k*S/roll,.05+k*.02);
+  else if(s%2===0)hat(t,s%4===0?.1:.06);
+  if(s===10&&bar%2===0)hat(t,.12,true);
+  if((st>>6)%2===1&&MEL808[bar][s])bell(MEL808[bar][s],t,.09);
+  if(s===0&&(st>>6)%2===0)[ROOT[bar]+24,ROOT[bar]+27+(bar===1||bar===2?1:0),ROOT[bar]+31].forEach(n=>osc('triangle',midi(n),t,S*15,.03,M,{a:.4,lp:1200}));
+}
+// 우주 레이스: 150BPM 칩튠, C - Am - F - G
+function playSpace(st,t,S){
+  const M=A.music,s=st%16,bar=(st>>4)%4,ch=[[60,64,67],[57,60,64],[53,57,60],[55,59,62]][bar],p=x=>x[s]!=='.';
+  if(p('x...x...x...x.x.'))kick(t,.8);
+  if(p('....x.......x...'))noise(t,.12,.4,M,'highpass',2000);
+  if(bar===3&&s>=12)noise(t,.06,.15+(s-12)*.06,M,'highpass',3000);
+  if(s%2===0)hat(t,.08);
+  if(s%2===0){const n=ch[0]-12+(s%4===2?12:0);osc('square',midi(n),t,S*1.5,.1,M,{lp:2000})}
+  const tones=[ch[0]+12,ch[1]+12,ch[2]+12,ch[0]+24,ch[1]+24],MEL=[0,2,1,2,3,2,1,0,1,2,3,4,3,2,1,2];
+  if('xx.xx.x.xx.xx.xx'[s]==='x')osc('square',midi(tones[MEL[(s+bar*3)%16]]),t,S*.85,.06,M,{lp:5000,send:true});
+  osc('triangle',midi(tones[s%3]+12),t,S*.5,.025,M);
+}
+const TRACKS={neon:{bpm:128,play:playNeon},trap:{bpm:140,play:playTrap},space:{bpm:150,play:playSpace}};
+A.track='neon';
+try{const m=localStorage.getItem('bf-music');if(m==='off')A.on=false;else if(TRACKS[m])A.track=m}catch(e){}
+function setTrack(k){
+  if(k==='off'){A.on=false;stopMusic()}
+  else{A.on=true;A.track=k;A.step=0;if(A.delay)A.delay.delayTime.value=60/TRACKS[k].bpm*.75;stopMusic();startMusic()}
+  try{localStorage.setItem('bf-music',k)}catch(e){}
+  document.querySelectorAll('.music button').forEach(b=>b.classList.toggle('on',b.dataset.t===(A.on?A.track:'off')));
+}
+const sfx={
+  pick(){if(!A.C)return;const t=A.C.currentTime;osc('square',620,t,.09,.18,A.sfx,{to:1240,glide:.06,lp:4000});osc('sine',1860,t+.03,.07,.1,A.sfx)},
+  rotate(){if(!A.C)return;const t=A.C.currentTime;osc('triangle',500,t,.14,.2,A.sfx,{to:1500,glide:.1});noise(t,.12,.12,A.sfx,'bandpass',1200,5000)},
+  place(){if(!A.C)return;const t=A.C.currentTime;osc('sine',190,t,.16,.6,A.sfx,{to:70});osc('triangle',1180,t,.05,.15,A.sfx,{to:880});noise(t,.06,.25,A.sfx,'bandpass',2500)},
+  cancel(){if(!A.C)return;const t=A.C.currentTime;osc('square',420,t,.12,.12,A.sfx,{to:200,lp:2000})},
+  clear(lines,combo){if(!A.C)return;const t=A.C.currentTime,up=Math.min(combo-1,8)*3;
+    // 콤보 단계별로 층을 더 쌓음
+    if(combo>=2){osc('sawtooth',midi(60+up),t,.35,.1,A.sfx,{to:midi(96+up),glide:.3,lp:8000,det:10});osc('sawtooth',midi(60+up),t,.35,.08,A.sfx,{to:midi(96+up),glide:.3,lp:8000,det:-10})}
+    if(combo>=3){const e=t+.32;[0,4,7,12,16].forEach((iv,k)=>[-14,-5,5,14].forEach(dt=>osc('sawtooth',midi(72+up+iv),e,.9,.025,A.sfx,{det:dt,lp:9000,lpTo:2000,a:.01,send:k===4})))}
+    if(combo>=4)for(let k=0;k<Math.min(combo,8);k++)osc('square',3200+k*300,t+.1+k*.06,.1,.07,A.sfx,{to:180,glide:.09,lp:6000});
+    if(combo>=5){osc('sine',90,t+.32,.9,.9,A.sfx,{to:28,glide:.7});noise(t,.32,.25,A.sfx,'highpass',300,12000)}
+    if(combo>=7)for(let k=0;k<12;k++)osc('triangle',midi(100+((k*5)%12)),t+.35+k*.035,.08,.05,A.sfx);
+    noise(t,.45,.35,A.sfx,'bandpass',600,9000);
+    const seq=[60,64,67,72,76,79,84,88];const cnt=4+Math.min(lines,4);
+    for(let i=0;i<cnt;i++)osc('sawtooth',midi(seq[i]+up),t+i*.045,.18,.13,A.sfx,{lp:5000,send:true});
+    const e=t+cnt*.045;[72,76,79,84].forEach(n=>{osc('sawtooth',midi(n+up),e,.6,.07,A.sfx,{det:8,lp:6000,lpTo:1500,a:.01});osc('square',midi(n+up),e,.6,.04,A.sfx,{det:-8,lp:4000,lpTo:1200,a:.01})});
+    osc('sine',120,e,.4,.7,A.sfx,{to:40});noise(e,.5,.2,A.sfx,'highpass',7000);
+    for(let i=0;i<lines*3;i++)osc('sine',midi(96+Math.random()*12|0),e+.05+i*.04,.12,.06,A.sfx)},
+  comboBreak(){if(!A.C)return;const t=A.C.currentTime;osc('sawtooth',700,t,.35,.12,A.sfx,{to:120,glide:.3,lp:2500})},
+  tick(){if(!A.C)return;const t=A.C.currentTime;osc('square',1400,t,.06,.08,A.sfx,{lp:5000})},
+  over(){if(!A.C)return;const t=A.C.currentTime;[67,63,60,55].forEach((n,i)=>osc('sawtooth',midi(n),t+i*.18,.3,.12,A.sfx,{lp:1800}))}
+};
+window.addEventListener('pointerdown',initAudio);
+document.addEventListener('visibilitychange',()=>{if(!A.C)return;document.hidden?A.C.suspend():A.C.resume()});
+
+const N=8, COLORS=['--p1','--p2','--p3','--p4','--p5','--p6','--p7'];
+const SHAPES=[
+ [[0,0]],[[0,0],[0,1]],[[0,0],[1,0]],[[0,0],[0,1],[0,2]],[[0,0],[1,0],[2,0]],
+ [[0,0],[0,1],[0,2],[0,3]],[[0,0],[1,0],[2,0],[3,0]],[[0,0],[0,1],[0,2],[0,3],[0,4]],[[0,0],[1,0],[2,0],[3,0],[4,0]],
+ [[0,0],[0,1],[1,0],[1,1]],[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]],
+ [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]],[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1]],
+ [[0,0],[1,0],[1,1]],[[0,1],[1,0],[1,1]],[[0,0],[0,1],[1,0]],[[0,0],[0,1],[1,1]],
+ [[0,0],[1,0],[2,0],[2,1]],[[0,1],[1,1],[2,1],[2,0]],[[0,0],[0,1],[0,2],[1,0]],[[0,0],[0,1],[0,2],[1,2]],
+ [[0,0],[0,1],[0,2],[1,1]],[[0,1],[1,0],[1,1],[1,2]],[[0,0],[0,1],[1,1],[1,2]],[[0,1],[0,2],[1,0],[1,1]],
+ [[0,0],[1,0],[2,0],[2,1],[2,2]],[[0,0],[0,1],[0,2],[1,0],[2,0]]
+];
+const boardEl=document.getElementById('board'),trayEl=document.getElementById('tray'),floatEl=document.getElementById('float');
+const scoreEl=document.getElementById('score'),bestEl=document.getElementById('best'),toast=document.getElementById('toast');
+let grid,cells=[],pieces,score,best=0,combo,comboLeft=0,drag=null;
+const HEAT=['--p4','--p3','--p2','--p1','--p6','--p5'];
+const comboEl=document.getElementById('combo'),cfill=document.getElementById('cfill'),clabel=document.getElementById('clabel');
+// 콤보 타임게이지: 줄을 지우면 가득 차고, 시간이 지나면 줄어듦. 콤보가 높을수록 조금씩 짧아짐
+let comboEnd=0,comboDur=0,lastSec=0;
+function startComboTimer(){comboDur=Math.max(5000,10000-(combo-1)*600);comboEnd=performance.now()+comboDur;lastSec=0}
+function comboLoop(now){
+  if(combo){
+    const left=comboEnd-now;
+    if(left<=0){if(combo>1)say('콤보 끝');combo=0;sfx.comboBreak();drawCombo()}
+    else{
+      cfill.style.width=(left/comboDur*100)+'%';
+      const sec=Math.ceil(left/1000);
+      if(sec!==lastSec){lastSec=sec;clabel.textContent=`콤보 유지 ${sec}초`;if(sec<=3)sfx.tick()}
+      comboEl.classList.toggle('last',left<2500);
+    }
+  }
+  requestAnimationFrame(comboLoop);
+}
+requestAnimationFrame(comboLoop);
+function drawCombo(bump){
+  comboEl.style.setProperty('--heat',combo?`var(${HEAT[Math.min(combo-1,HEAT.length-1)]})`:'var(--muted)');
+  comboEl.classList.toggle('live',combo>0);if(!combo){comboEl.classList.remove('last');cfill.style.width='0'}
+  if(!combo)clabel.textContent='줄을 지우면 콤보 시작';
+  document.getElementById('cnum').textContent=combo?`×${combo}`:'';
+  if(bump){comboEl.classList.remove('bump');void comboEl.offsetWidth;comboEl.classList.add('bump');
+    boardEl.classList.add('flash');setTimeout(()=>boardEl.classList.remove('flash'),350)}
+}
+try{best=+localStorage.getItem('bf-best')||0}catch(e){}
+bestEl.textContent=best;
+
+for(let i=0;i<N*N;i++){const d=document.createElement('div');d.className='c';boardEl.insertBefore(d,toast);cells.push(d)}
+
+function newGame(){
+  grid=Array.from({length:N},()=>Array(N).fill(null));score=0;combo=0;comboLeft=0;drawCombo();
+  document.getElementById('over').hidden=true;deal();render();
+}
+function mk(s,color){return{s,color,h:Math.max(...s.map(p=>p[0]))+1,w:Math.max(...s.map(p=>p[1]))+1}}
+function rnd(){return mk(SHAPES[Math.random()*SHAPES.length|0],COLORS[Math.random()*COLORS.length|0])}
+// 시계 방향 90도 회전: (r,c) → (c, h-1-r)
+function rotate(p){return mk(p.s.map(([r,c])=>[c,p.h-1-r]),p.color)}
+function deal(){pieces=[rnd(),rnd(),rnd()];renderTray()}
+function fits(p,r,c){return p.s.every(([dr,dc])=>{const y=r+dr,x=c+dc;return y>=0&&x>=0&&y<N&&x<N&&!grid[y][x]})}
+function canPlaceAt(p){for(let r=0;r<N;r++)for(let c=0;c<N;c++)if(fits(p,r,c))return true;return false}
+// 회전해서라도 놓을 수 있으면 아직 게임 오버가 아님
+function canPlaceAny(p){for(let k=0;k<4;k++){if(canPlaceAt(p))return true;p=rotate(p)}return false}
+
+function render(ghost){
+  const g=new Set(),clr=new Set();
+  if(ghost){ghost.p.s.forEach(([dr,dc])=>g.add((ghost.r+dr)*N+ghost.c+dc));
+    // preview lines that would clear
+    const t=grid.map(r=>r.slice());ghost.p.s.forEach(([dr,dc])=>t[ghost.r+dr][ghost.c+dc]=1);
+    for(let i=0;i<N;i++){if(t[i].every(Boolean))for(let j=0;j<N;j++)clr.add(i*N+j);if(t.every(r=>r[i]))for(let j=0;j<N;j++)clr.add(j*N+i)}}
+  cells.forEach((d,i)=>{const v=grid[i/N|0][i%N];d.className='c';d.style.background='';
+    if(v){d.classList.add('f');d.style.background=`var(${clr.has(i)?ghost.p.color:v})`}
+    else if(g.has(i)){d.classList.add('f','ghost');d.style.background=`var(${ghost.p.color})`}
+    if(clr.has(i))d.classList.add('hint')});
+  scoreEl.textContent=score;
+}
+function renderTray(){
+  [...trayEl.children].forEach((slot,i)=>{slot.innerHTML='';const p=pieces[i];if(!p)return;
+    const el=document.createElement('div');el.className='piece'+(canPlaceAt(p)?'':' dim');
+    el.style.gridTemplateColumns=`repeat(${p.w},18px)`;el.style.gridTemplateRows=`repeat(${p.h},18px)`;
+    p.s.forEach(([r,c])=>{const b=document.createElement('i');b.style.gridRow=r+1;b.style.gridColumn=c+1;b.style.background=`var(${p.color})`;el.appendChild(b)});
+    slot.appendChild(el)});
+}
+// 대기 영역 전체를 3칸으로 나눠, 어디를 눌러도 가장 가까운 블록이 잡히게
+trayEl.addEventListener('pointerdown',e=>{
+  const r=trayEl.getBoundingClientRect();let i=Math.min(2,Math.max(0,Math.floor((e.clientX-r.left)/r.width*3)));
+  if(!pieces[i]){const order=[i-1,i+1].filter(k=>k>=0&&k<3&&pieces[k]).sort((a,b)=>{
+      const cx=k=>r.left+r.width*(k+.5)/3;return Math.abs(e.clientX-cx(a))-Math.abs(e.clientX-cx(b))});
+    if(!order.length){const any=pieces.findIndex(Boolean);if(any<0)return;i=any}else i=order[0]}
+  const el=trayEl.children[i].querySelector('.piece');if(el)startDrag(e,i,el);
+});
+function cellSize(){const r=boardEl.getBoundingClientRect();return{r,size:(r.width-12-3*7)/8}}
+function startDrag(e,i,el){
+  e.preventDefault();initAudio();sfx.pick();const p=pieces[i];const{size}=cellSize();
+  floatEl.innerHTML='';floatEl.style.gridTemplateColumns=`repeat(${p.w},${size}px)`;floatEl.style.gridTemplateRows=`repeat(${p.h},${size}px)`;
+  p.s.forEach(([r,c])=>{const b=document.createElement('i');b.style.gridRow=r+1;b.style.gridColumn=c+1;b.style.background=`var(${p.color})`;floatEl.appendChild(b)});
+  drag={i,p,el,lift:e.pointerType==='mouse'?0:size*1.6,size,x0:e.clientX,y0:e.clientY,moved:false};move(e);
+  window.addEventListener('pointermove',move);window.addEventListener('pointerup',end,{once:true});window.addEventListener('pointercancel',end,{once:true});
+}
+function target(){
+  const{r,size}=cellSize(),fr=floatEl.getBoundingClientRect(),step=size+3;
+  const c=Math.round((fr.left-r.left-6)/step),row=Math.round((fr.top-r.top-6)/step);
+  return fits(drag.p,row,c)?{r:row,c}:null;
+}
+function move(e){
+  if(!drag)return;
+  // 10px 넘게 움직여야 끌기로 판단, 그 전에 손을 떼면 탭(회전)
+  if(!drag.moved){if(Math.hypot(e.clientX-drag.x0,e.clientY-drag.y0)<10)return;drag.moved=true;floatEl.hidden=false;drag.el.style.visibility='hidden'}
+  const w=drag.p.w*(drag.size+3),h=drag.p.h*(drag.size+3);
+  floatEl.style.transform=`translate(${e.clientX-w/2}px,${e.clientY-h/2-drag.lift}px)`;
+  const t=target();render(t?{p:drag.p,...t}:null);
+}
+function end(){
+  window.removeEventListener('pointermove',move);
+  if(!drag.moved){const i=drag.i;drag=null;pieces[i]=rotate(pieces[i]);sfx.rotate();renderTray();return}
+  const t=target(),{i,p,el}=drag;drag=null;floatEl.hidden=true;el.style.visibility='';
+  if(!t){sfx.cancel();render();return}
+  sfx.place();
+  p.s.forEach(([dr,dc])=>grid[t.r+dr][t.c+dc]=p.color);score+=p.s.length;pieces[i]=null;
+  const rows=[],cols=[];
+  for(let k=0;k<N;k++){if(grid[k].every(Boolean))rows.push(k);if(grid.every(r=>r[k]))cols.push(k)}
+  const lines=rows.length+cols.length;
+  if(lines){combo++;startComboTimer();drawCombo(true);const gain=lines*10*lines*combo;score+=gain;
+    const kill=new Set();rows.forEach(y=>{for(let x=0;x<N;x++)kill.add(y*N+x)});cols.forEach(x=>{for(let y=0;y<N;y++)kill.add(y*N+x)});
+    sfx.clear(lines,combo);render();kill.forEach(k=>cells[k].classList.add('pop'));
+    say(lines>1?`${lines}줄! +${gain}`:combo>1?`콤보 ×${combo} +${gain}`:`+${gain}`);
+    setTimeout(()=>{kill.forEach(k=>grid[k/N|0][k%N]=null);after()},220);
+  }else{render();after()}
+}
+function after(){
+  if(pieces.every(x=>!x))deal();else renderTray();render();
+  if(score>best){best=score;bestEl.textContent=best;try{localStorage.setItem('bf-best',best)}catch(e){}}
+  if(!pieces.some(p=>p&&canPlaceAny(p))){document.getElementById('final').textContent=`점수 ${score}`;document.getElementById('over').hidden=false;combo=0;drawCombo();sfx.over()}
+}
+document.querySelectorAll('.music button').forEach(b=>{b.onclick=()=>{initAudio();setTrack(b.dataset.t)};b.classList.toggle('on',b.dataset.t===(A.on?A.track:'off'))});
+let tt;function say(m){toast.textContent=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove('show'),700)}
+document.getElementById('again').onclick=newGame;document.getElementById('reset').onclick=newGame;
+newGame();
+</script>
+
+</body>
+</html>
