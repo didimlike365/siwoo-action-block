@@ -52,7 +52,8 @@ h1{font-family:var(--display);font-weight:400;font-size:1.6rem;margin:0;letter-s
 .c.ghost{opacity:.42}
 .c.hint{animation:glow .5s ease-in-out infinite alternate}
 @keyframes glow{to{filter:brightness(1.6);box-shadow:0 0 16px #fff,0 0 4px #fff}}
-.c.pop{transform:scale(1.35) rotate(20deg);opacity:0;filter:brightness(3)}
+.c.crack{transform:scale(1.12);filter:brightness(2.6) saturate(1.4);box-shadow:0 0 18px #fff,0 0 4px #fff;transition:transform .06s,filter .06s}
+.c.pop{transform:scale(1.8) rotate(25deg);opacity:0;filter:brightness(4) blur(2px);transition:transform .22s,opacity .22s,filter .22s}
 #board.flash{box-shadow:0 0 0 2px var(--heat),0 0 40px var(--heat),inset 0 0 30px color-mix(in srgb,var(--heat) 40%,transparent)}
 #board.shake{animation:shake .35s}
 @keyframes shake{20%{transform:translate(-5px,2px)}40%{transform:translate(5px,-3px)}60%{transform:translate(-3px,3px)}80%{transform:translate(2px,-1px)}}
@@ -107,7 +108,20 @@ button:focus-visible{outline:3px solid var(--ice);outline-offset:3px}
 .deco i:nth-child(2){animation-delay:-.4s}.deco i:nth-child(3){animation-delay:-.8s}.deco i:nth-child(4){animation-delay:-1.2s}.deco i:nth-child(5){animation-delay:-1.6s}
 @keyframes bob{50%{transform:rotate(45deg) translate(-5px,-5px)}}
 #start p{margin:0;color:var(--muted);font-size:.9rem}
-#go{font-size:1.5rem;padding:16px 44px}
+.modes{display:flex;flex-direction:column;gap:14px;width:min(100%,320px)}
+.mode{display:flex;flex-direction:column;gap:4px;padding:16px 22px;border-radius:20px;text-align:center}
+.mode b{font-weight:400;font-size:1.5rem}
+.mode span{font-family:var(--body);font-weight:700;font-size:.85rem;opacity:.9}
+.mode.zone{background:linear-gradient(180deg,#ffd0f4 0%,#ff5fc8 45%,#a14bff 100%);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),inset 0 -2px 0 rgba(0,0,0,.2),0 6px 20px rgba(255,95,200,.45)}
+.title{display:flex;flex-direction:column;gap:4px;min-width:0}
+#modeChip{align-self:flex-start;font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:2px 9px;border-radius:999px;border:1px solid var(--edge);color:var(--ice);background:var(--glass)}
+#modeChip.zone{color:var(--rose);border-color:rgba(255,122,217,.5)}
+/* 구역 모드: 4×4 구역 경계선 + 구역별 바닥색 */
+#zones{position:absolute;inset:0;pointer-events:none;z-index:1;display:none;border-radius:inherit}
+#board.zone #zones{display:block;background:
+  linear-gradient(90deg,transparent calc(50% - 1px),rgba(255,122,217,.35) calc(50% - 1px),rgba(255,122,217,.35) calc(50% + 1px),transparent calc(50% + 1px)),
+  linear-gradient(0deg,transparent calc(50% - 1px),rgba(255,122,217,.35) calc(50% - 1px),rgba(255,122,217,.35) calc(50% + 1px),transparent calc(50% + 1px));
+  filter:drop-shadow(0 0 3px rgba(255,122,217,.3))}
 
 /* color-mix를 모르는 옛 브라우저용 보석 */
 @supports not (color:color-mix(in srgb,red 50%,white)){
@@ -126,7 +140,7 @@ button:focus-visible{outline:3px solid var(--ice);outline-offset:3px}
 <canvas id="stars"></canvas>
 <div class="wrap">
   <header>
-    <h1 class="shine">시우의 액션블록</h1>
+    <div class="title"><h1 class="shine">시우의 액션블록</h1><span id="modeChip">클래식</span></div>
     <div class="scores">
       <div><small>점수</small><b id="score" class="shine">0</b></div>
       <div><small>최고</small><b id="best" class="shine">0</b></div>
@@ -137,11 +151,12 @@ button:focus-visible{outline:3px solid var(--ice);outline-offset:3px}
     <div class="bar"><i id="cfill"></i></div>
   </div>
   <div id="board">
+    <div id="zones"></div>
     <div id="toast" class="shine"></div>
     <div id="over" hidden><h2 class="shine">더 놓을 곳이 없어요</h2><div id="final"></div><button id="again">다시 하기</button></div>
   </div>
   <div id="tray"><div class="slot"></div><div class="slot"></div><div class="slot"></div></div>
-  <div class="foot"><span>톡 누르면 회전, 끌어서 놓기. 한 줄을 채우면 보석이 깨져요</span><div><button class="small" id="full">전체화면</button><button class="small" id="reset">새 게임</button></div></div>
+  <div class="foot"><span>톡 누르면 회전, 끌어서 놓기. 한 줄을 채우면 보석이 깨져요</span><div><button class="small" id="modeBtn">모드</button><button class="small" id="full">전체화면</button><button class="small" id="reset">새 게임</button></div></div>
   <div class="music" role="group" aria-label="배경음악"><span>음악</span><button class="small" data-t="farm">동물 농장</button><button class="small" data-t="siren">사이렌 하우스</button><button class="small" data-t="neon">네온 질주</button><button class="small" data-t="trap">808 붐</button><button class="small" data-t="space">우주 레이스</button><button class="small" data-t="off">끄기</button></div>
 </div>
 <div id="float" hidden></div>
@@ -149,7 +164,10 @@ button:focus-visible{outline:3px solid var(--ice);outline-offset:3px}
 <div id="start">
   <h2 class="logo shine">시우의<br>액션블록</h2>
   <div class="deco"><i class="gem" style="--g:#ff2e63"></i><i class="gem" style="--g:#ffb020"></i><i class="gem" style="--g:#19d38a"></i><i class="gem" style="--g:#2f7bff"></i><i class="gem" style="--g:#a14bff"></i></div>
-  <button id="go">게임 시작</button>
+  <div class="modes">
+    <button class="mode" id="goClassic"><b>클래식</b><span>가로·세로 한 줄을 채우면 펑!</span></button>
+    <button class="mode zone" id="goZone"><b>구역 모드</b><span>줄은 물론, 4×4 구역을 채워도 펑!</span></button>
+  </div>
   <p>누르면 전체화면으로 시작해요</p>
 </div>
 
@@ -168,7 +186,10 @@ function initAudio(){
   let C;try{C=new AC()}catch(e){return}A.C=C;
   const master=C.createGain();master.gain.value=.8;
   const comp=C.createDynamicsCompressor();master.connect(comp);comp.connect(C.destination);
-  A.music=C.createGain();A.music.gain.value=.32;A.music.connect(master);
+  // 배경음악 → 고음 깎는 필터(곡마다 다르게) → 출력
+  A.music=C.createGain();A.music.gain.value=.32;
+  A.tone=C.createBiquadFilter();A.tone.type='lowpass';A.tone.Q.value=.5;A.tone.frequency.value=TRACKS[A.track].lp||16000;
+  A.music.connect(A.tone);A.tone.connect(master);
   A.sfx=C.createGain();A.sfx.gain.value=.9;A.sfx.connect(master);
   // 에코
   const d=C.createDelay();A.delay=d;d.delayTime.value=60/TRACKS[A.track].bpm*.75;const fb=C.createGain();fb.gain.value=.38;
@@ -227,43 +248,91 @@ function baa(n,t,dur,v,dest=A.music,op={}){
   g.gain.setValueAtTime(.0001,t);g.gain.exponentialRampToValueAtTime(v*2.6,t+.05);g.gain.setValueAtTime(v*2.6,t+dur*.65);g.gain.exponentialRampToValueAtTime(.0001,t+dur);
   g.connect(dest);o.start(t);lfo.start(t);o.stop(t+dur+.05);lfo.stop(t+dur+.05);
 }
+// 노래하는 동물: 한 목소리로 여러 음을 미끄러지듯 이어 부르고, 끝은 우스꽝스럽게 길게 꺾음.
+// 동물 목소리(필터로 만든 모음)에 깨끗한 악기 음(inst 비율)을 섞어 악기처럼 들리게 함
+// o: inst 악기 비율, wob 떨림 속도, wd 떨림 깊이, tail 꼬리 길이, tailTo 꼬리 끝 음 비율, laugh 웃는 떨림 속도(양)
+function sing(kind,notes,t,nd,v,o={}){
+  const C=A.C,inst=o.inst??.55,tail=o.tail??nd*2,te=t+notes.length*nd,end=te+tail,cat=kind==='cat';
+  const vo=C.createOscillator(),vo2=C.createOscillator(),tone=C.createOscillator();
+  vo.type='sawtooth';vo2.type='square';vo2.detune.value=10;tone.type='triangle';
+  const F=[vo.frequency,vo2.frequency,tone.frequency];
+  notes.forEach((n,k)=>{const f=midi(n),tt=t+k*nd;F.forEach(p=>{
+    if(k===0)p.setValueAtTime(f*(cat?.78:.88),tt);
+    p.exponentialRampToValueAtTime(f,tt+Math.min(.07,nd*.4));p.setValueAtTime(f,tt+nd*.8)})});
+  const last=midi(notes[notes.length-1]);
+  F.forEach(p=>{p.setValueAtTime(last,te);p.exponentialRampToValueAtTime(last*(o.tailTo??.5),end)});
+  // 떨림
+  const lfo=C.createOscillator(),ld=C.createGain();lfo.frequency.value=o.wob||5.5;ld.gain.value=last*(o.wd||.018);
+  lfo.connect(ld);F.forEach(p=>ld.connect(p));
+  // 목소리: 모음 필터
+  const mix=C.createGain(),f1=C.createBiquadFilter(),f2=C.createBiquadFilter(),vg=C.createGain();
+  mix.gain.value=.5;f1.type='bandpass';f2.type='bandpass';f1.Q.value=3;f2.Q.value=4;
+  notes.forEach((n,k)=>{const tt=t+k*nd;
+    if(cat){f1.frequency.setValueAtTime(650,tt);f1.frequency.exponentialRampToValueAtTime(1700,tt+nd*.35);f1.frequency.exponentialRampToValueAtTime(850,tt+nd*.95);
+            f2.frequency.setValueAtTime(2200,tt);f2.frequency.exponentialRampToValueAtTime(2900,tt+nd*.35);f2.frequency.exponentialRampToValueAtTime(1300,tt+nd*.95)}
+    else{f1.frequency.setValueAtTime(560,tt);f2.frequency.setValueAtTime(1500,tt);f2.frequency.linearRampToValueAtTime(1850,tt+nd*.5)}});
+  f1.frequency.setValueAtTime(cat?850:560,te);f1.frequency.exponentialRampToValueAtTime(cat?520:480,end);
+  f2.frequency.setValueAtTime(cat?1300:1850,te);f2.frequency.exponentialRampToValueAtTime(900,end);
+  let src=mix;
+  if(!cat){const trem=C.createGain(),td=C.createGain(),ll=C.createOscillator();ll.frequency.value=o.laugh||8;trem.gain.value=.55;td.gain.value=.45;
+    ll.connect(td);td.connect(trem.gain);mix.connect(trem);src=trem;ll.start(t);ll.stop(end+.05)}
+  vo.connect(mix);vo2.connect(mix);src.connect(f1);src.connect(f2);const soft=C.createBiquadFilter();soft.type='lowpass';soft.frequency.value=2000;f1.connect(soft);f2.connect(soft);soft.connect(vg);vg.gain.value=2.4*(1-inst);
+  // 악기 음
+  const tl=C.createBiquadFilter(),tg=C.createGain();tl.type='lowpass';tl.frequency.value=1800;tg.gain.value=inst*.6;tone.connect(tl);tl.connect(tg);
+  const g=C.createGain();vg.connect(g);tg.connect(g);
+  g.gain.setValueAtTime(.0001,t);v*=.68;g.gain.exponentialRampToValueAtTime(v,t+.08);g.gain.setValueAtTime(v,end-tail*.4);g.gain.exponentialRampToValueAtTime(.0001,end);
+  g.connect(A.music);const ws=C.createGain();ws.gain.value=.6;g.connect(ws);ws.connect(A.wet);
+  [vo,vo2,tone,lfo].forEach(x=>{x.start(t);x.stop(end+.05)});
+}
 function wood(t,v,hi){osc('sine',hi?1250:880,t,.07,v,A.music,{to:hi?980:680,glide:.05});noise(t,.015,v*.5,A.music,'bandpass',hi?3200:2100)}
 function tuba(n,t,dur,v){osc('sawtooth',midi(n),t,dur,v,A.music,{lp:650,lpTo:260,a:.02,q:2});osc('sine',midi(n),t,dur,v*.9,A.music,{a:.02})}
 function xylo(n,t,v=.13){osc('sine',midi(n),t,.28,v,A.music,{send:true});osc('sine',midi(n)*4,t,.05,v*.25,A.music)}
 
 // 동물 농장: 118BPM 통통 튀는 그루브. 리듬 악기가 중심이고 동물 소리는 가끔 양념으로만. C - F - G - C
 function playFarm(st,t,S){
-  const M=A.music,s=st%16,bar=(st>>4)%4,phrase=(st>>6)%2,p=x=>x[s]!=='.';
-  const R=[48,53,55,48][bar],CH=[[60,64,67,72],[60,65,69,72],[62,67,71,74],[60,64,67,72]][bar];
+  // 16마디 한 바퀴: 1~8마디 기본, 9~16마디는 한 음 위로 조옮김하고 악기를 더 쌓아 고조
+  const M=A.music,s=st%16,bar=(st>>4)%4,sec=(st>>6)%4,phrase=sec%2,hype=sec>=2,K=hype?2:0,p=x=>x[s]!=='.';
+  const R=[48,53,55,48][bar]+K,CH=[[60,64,67,72],[60,65,69,72],[62,67,71,74],[60,64,67,72]][bar].map(n=>n+K);
+  const sing2=(kind,notes,tt,nd,v,o)=>{sing(kind,notes.map(n=>n+K),tt,nd,v,o);if(hype)sing(kind,notes.map(n=>n+K-12),tt,nd,v*.45,{...o,inst:.7})};
   // 드럼: 쿵 4박 + 짝 + 16비트 셰이커
-  if(p('x...x...x...x...'))kick(t,.75);
-  if(bar===3&&s===14)kick(t,.5);
-  if(p('....x.......x...')){clap(t,.38);snare(t,.14)}
-  hat(t,s%4===2?.11:s%2?.035:.06,s===14&&bar%2===1);
+  if(p('x...x...x...x...'))kick(t,hype?.85:.75);
+  if(hype&&p('..............x.'))kick(t,.45);
+  if(!hype&&bar===3&&s===14)kick(t,.5);
+  if(p('....x.......x...')){clap(t,hype?.5:.38);snare(t,hype?.22:.14)}
+  if(hype)hat(t,s%4===2?.09:.04,s%4===2);else hat(t,s%4===2?.07:s%2?.025:.04,s===14&&bar%2===1);
   if(p('..x..x....x..x..'))wood(t,.18,s===5||s===13);
-  // 튀는 옥타브 베이스
-  const B='x.xx.xx.x.xx.x.x';
+  // 다음 구간으로 넘어가기 전 스네어 롤 + 쏴아아 (8마디째, 16마디째)
+  if(bar===3&&(sec===1||sec===3)&&s>=8){
+    const n=s>=12&&sec===3?2:1;for(let k=0;k<n;k++)snare(t+k*S/n,.06+(s-8)*.03);
+    noise(t,S,.03+(s-8)*.012,M,'bandpass',600+(s-8)*350);
+  }
+  // 튀는 옥타브 베이스 (고조 구간은 더 촘촘하게)
+  const B=hype?'x.xxx.xxx.xxx.xx':'x.xx.xx.x.xx.x.x';
   if(B[s]==='x'){const n=R-12+((s%3===2)?12:0);osc('square',midi(n),t,S*.75,.13,M,{lp:900,lpTo:250,q:5});osc('sine',midi(n-12),t,S*.75,.18,M)}
+  // 고조 구간: 화음 패드를 길게 깔기
+  if(hype&&s===0)CH.slice(0,3).forEach(n=>osc('triangle',midi(n),t,S*15,.035,M,{a:.25,lp:1600}));
   // 마림바 리프: 엇박으로 통통
   const RIFF='x..x..x.x.x..x..',IDX=[0,2,1,3,2,1,3,2];
-  if(RIFF[s]==='x'){const k=[...RIFF.slice(0,s)].filter(c=>c==='x').length;xylo(CH[IDX[k%8]]+12,t,.1)}
-  // 두 번째 4마디: 멜로디 추가
-  if(phrase===1){
+  if(RIFF[s]==='x'){const k=[...RIFF.slice(0,s)].filter(c=>c==='x').length;xylo(CH[IDX[k%8]]+12,t,hype?.12:.1)}
+  // 멜로디: 기본은 두 번째 4마디만, 고조 구간은 처음부터 계속
+  if(phrase===1||hype){
     const MEL=[[79,null,76,null,79,81,null,79,null,76,null,74,76,null,null,null],[81,null,77,null,81,84,null,81,null,77,null,76,77,null,null,null],[83,null,79,null,83,86,null,83,null,79,null,77,79,null,81,null],[84,null,null,83,84,null,79,null,76,null,79,null,84,null,null,null]][bar];
-    if(MEL[s])osc('square',midi(MEL[s]),t,S*1.6,.045,M,{lp:3500,send:true,a:.01});
+    if(MEL[s]){osc('triangle',midi(MEL[s]-12+K),t,S*1.6,.09,M,{send:true,a:.01});if(hype)osc('square',midi(MEL[s]-24+K),t,S*1.2,.03,M,{lp:1200})}
   }
   // 동물 소리(약 30%): 우스꽝스럽게 변조
+  // 동물 노래: 음을 이어 부르고 끝을 길게 꺾는 우스꽝스러운 소리
   if(phrase===0){
-    if(bar===0&&s===14)meow(91,t,S*1.6,.5,M,{swoop:2.2});                  // 다람쥐 목소리 고양이 "먀!"
-    if(bar===1&&s===12)meow(76,t,S*3.4,.55,M,{swoop:2.6,wob:9,wd:.07});    // 출렁출렁 "미야아아옹~"
-    if(bar===2&&s===10)baa(72,t,S*2.2,.5,M,{rate:16,dep:.09});             // 빠른 "메헤헤헤"
-    if(bar===3&&s===8)baa(43,t,S*4,.6,M,{rate:4,dep:.12,drop:.6});          // 굵고 느린 "메에에에~" 축 처지기
-    if(bar===3&&s===15)osc('triangle',200,t,.3,.15,M,{to:560,glide:.25});   // 띠요옹
+    if(bar===0&&s===8)sing2('cat',[72,76,79],t,S*2,.55,{tail:S*5,tailTo:.45});                 // "냐~야~옹~ 오오오↘"
+    if(bar===1&&s===8)sing2('sheep',[60,60,64],t,S*2,.55,{laugh:13,tail:S*4,tailTo:.6});       // "메헤헤~ 메헤헤~ 메에에↘"
+    if(bar===2&&s===10)sing2('cat',[79,81],t,S,.5,{tail:S*3,tailTo:1.5});                       // "먀먀?↗"
+    if(bar===3&&s===2)sing2('sheep',[48,47,45],t,S*2.5,.6,{laugh:4,wd:.05,tail:S*5,tailTo:.55}); // 굵고 축 처지는 "메~에~에~"
+    if(bar===3&&s===15)osc('triangle',200,t,.3,.15,M,{to:560,glide:.25});                      // 띠요옹
   }else{
-    if(bar===0&&s===12)[0,2].forEach(k=>meow(88+k*3,t+k*S,S*1.2,.45,M,{swoop:2}));       // "먀 먀"
-    if(bar===1&&s===14)meow(64,t,S*3,.55,M,{swoop:3.2,wob:5,wd:.12});      // 낮게 비틀어진 "므야아옹"
-    if(bar===2&&s===12)baa(79,t,S*2.4,.5,M,{rate:20,dep:.1,drop:1.4});     // 끝이 위로 튀는 "메헤헤?"
-    if(bar===3&&s===8){baa(48,t,S*2,.55,M,{rate:5,dep:.15});meow(86,t+S*2,S*2,.45,M,{swoop:2.4})} // 양-고양이 대화
+    if(bar===0&&s===4)sing2('cat',[76,79,84,79],t,S*2,.55,{tail:S*4,tailTo:.5});               // 고양이 노래
+    if(bar===1&&s===4)sing2('sheep',[64,67,60],t,S*2,.55,{laugh:15,tail:S*4,tailTo:1.35});     // 양이 웃으며 대답 "메헤헤↗"
+    if(bar===2&&s===6)sing2('cat',[74,72,71,69],t,S*1.5,.55,{wob:6,wd:.08,tail:S*5,tailTo:.4}); // 비틀비틀 "므야아아옹~"
+    if(bar===3&&s===2&&sec===3)sing('cat',[79+K,84+K],t,S*1.5,.5,{tail:S*3,tailTo:1.4});           // 마지막 고조: "야옹!↗"
+    if(bar===3&&s===6)sing2('sheep',[55,57,59,60],t,S,.55,{laugh:10,tail:S*4,tailTo:1.3});     // 계단 올라가는 "메메메메에↗"
   }
 }
 // 네온 질주: 128BPM 신스웨이브. Am - F - C - G
@@ -360,7 +429,7 @@ function playSiren(st,t,S){
     if(bar===3&&s===12)siren('twotone',t,S*4,.05,1000);
   }
 }
-const TRACKS={siren:{bpm:126,play:playSiren},farm:{bpm:118,play:playFarm},neon:{bpm:128,play:playNeon},trap:{bpm:140,play:playTrap},space:{bpm:150,play:playSpace}};
+const TRACKS={siren:{bpm:126,play:playSiren},farm:{bpm:118,play:playFarm,lp:2800},neon:{bpm:128,play:playNeon},trap:{bpm:140,play:playTrap},space:{bpm:150,play:playSpace}};
 try{const m=localStorage.getItem('bf-music');if(m==='off')A.on=false;else if(TRACKS[m])A.track=m}catch(e){}
 function startMusic(){
   if(!A.C||A.timer)return;A.next=A.C.currentTime+.05;
@@ -369,7 +438,7 @@ function startMusic(){
 function stopMusic(){clearInterval(A.timer);A.timer=null}
 function setTrack(k){
   if(k==='off'){A.on=false;stopMusic()}
-  else{A.on=true;A.track=k;A.step=0;if(A.delay)A.delay.delayTime.value=60/TRACKS[k].bpm*.75;stopMusic();startMusic()}
+  else{A.on=true;A.track=k;A.step=0;if(A.delay)A.delay.delayTime.value=60/TRACKS[k].bpm*.75;if(A.tone)A.tone.frequency.setTargetAtTime(TRACKS[k].lp||16000,A.C.currentTime,.05);stopMusic();startMusic()}
   try{localStorage.setItem('bf-music',k)}catch(e){}
   markTrack();
 }
@@ -410,24 +479,55 @@ function resize(){DPR=Math.min(2,devicePixelRatio||1);W=innerWidth;H=innerHeight
   [starC,fxC].forEach(c=>{c.width=W*DPR;c.height=H*DPR});sx.setTransform(DPR,0,0,DPR,0,0);fx.setTransform(DPR,0,0,DPR,0,0);
   stars=Array.from({length:Math.round(W*H/9000)},()=>({x:Math.random()*W,y:Math.random()*H,r:Math.random()*1.4+.3,p:Math.random()*6.28,s:Math.random()*.03+.01,c:Math.random()<.3?'#ff9de6':Math.random()<.5?'#9ff6ff':'#ffffff'}))}
 addEventListener('resize',resize);resize();
-function burst(x,y,color,n=10){
-  for(let k=0;k<n;k++){const a=Math.random()*6.28,v=2+Math.random()*6;
-    parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-3,rot:Math.random()*6.28,vr:(Math.random()-.5)*.4,sz:3+Math.random()*6,life:0,max:40+Math.random()*25,color,kind:'shard'})}
-  for(let k=0;k<4;k++){const a=Math.random()*6.28,v=1+Math.random()*3;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,rot:0,vr:.1,sz:6+Math.random()*8,life:0,max:30,color:'#fff',kind:'spark'})}
+// 보석 한 칸이 산산조각: 불규칙한 유리 파편 + 불꽃 줄기 + 반짝이. (cx,cy)=폭발 중심, 거기서 바깥으로 튕겨나감
+let rings=[],flash=0,shake=0;const wrapEl=document.querySelector('.wrap');
+function burst(x,y,color,power=1,cx=x,cy=y){
+  const base=Math.atan2(y-cy,x-cx),far=Math.hypot(x-cx,y-cy)>4;
+  const n=Math.round((reduce?4:16)*power);
+  for(let k=0;k<n;k++){
+    const a=far&&Math.random()<.7?base+(Math.random()-.5)*1.6:Math.random()*6.28,v=(4+Math.random()*11)*Math.min(1.6,.7+power*.3);
+    const s=4+Math.random()*12,pts=[0,1,2].map(i=>{const an=i*2.1+Math.random()*.9;return[Math.cos(an)*s*(.5+Math.random()*.7),Math.sin(an)*s*(.5+Math.random()*.7)]});
+    parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-2-Math.random()*4,rot:Math.random()*6.28,vr:(Math.random()-.5)*.7,pts,life:0,max:45+Math.random()*40,color,kind:'shard'})}
+  if(reduce)return;
+  for(let k=0;k<Math.round(6*power);k++){const a=Math.random()*6.28,v=8+Math.random()*14;
+    parts.push({x,y,px:x,py:y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life:0,max:18+Math.random()*14,color,kind:'streak'})}
+  for(let k=0;k<3;k++){const a=Math.random()*6.28,v=1+Math.random()*3;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,rot:0,vr:.15,sz:7+Math.random()*10,life:0,max:28,color:'#fff',kind:'spark'})}
+  parts.push({x,y,vx:0,vy:0,sz:26,life:0,max:12,color,kind:'glow'});
+}
+// 큰 폭발 연출: 충격파 링 + 화면 번쩍 + 흔들림
+function blast(x,y,color,power){
+  rings.push({x,y,r:10,max:120+power*70,life:0,dur:26,color,w:10+power*3});
+  if(power>1.5)rings.push({x,y,r:4,max:70+power*40,life:-5,dur:22,color:'#ffffff',w:6});
+  flash=Math.min(.55,.22+power*.08);
+  if(!reduce)shake=Math.min(26,8+power*5);
 }
 function frame(){
   sx.clearRect(0,0,W,H);
   for(const s of stars){if(!reduce)s.p+=s.s;sx.globalAlpha=.25+.75*Math.abs(Math.sin(s.p));sx.fillStyle=s.c;sx.beginPath();sx.arc(s.x,s.y,s.r,0,6.28);sx.fill()}
   sx.globalAlpha=1;
+  // 흔들림
+  if(shake>.3){wrapEl.style.transform=`translate(${(Math.random()-.5)*shake}px,${(Math.random()-.5)*shake}px)`;shake*=.86}
+  else if(shake){shake=0;wrapEl.style.transform=''}
   fx.clearRect(0,0,W,H);
-  if(parts.length){
+  if(flash>.01){fx.fillStyle=`rgba(255,255,255,${flash})`;fx.fillRect(0,0,W,H);flash*=.8}
+  if(parts.length||rings.length){
     fx.globalCompositeOperation='lighter';
+    rings=rings.filter(r=>++r.life<r.dur);
+    for(const r of rings){if(r.life<0)continue;const k=r.life/r.dur,rad=r.r+(r.max-r.r)*(1-Math.pow(1-k,3));
+      fx.globalAlpha=1-k;fx.strokeStyle=r.color;fx.lineWidth=r.w*(1-k)+1;fx.beginPath();fx.arc(r.x,r.y,rad,0,6.28);fx.stroke()}
+    if(parts.length>1600)parts.splice(0,parts.length-1600);
     parts=parts.filter(p=>++p.life<p.max);
     for(const p of parts){
-      p.x+=p.vx;p.y+=p.vy;p.vy+=p.kind==='shard'?.32:0;p.vx*=.98;p.rot+=p.vr;
-      const a=1-p.life/p.max;fx.globalAlpha=a;fx.save();fx.translate(p.x,p.y);fx.rotate(p.rot);
-      if(p.kind==='shard'){const s=p.sz;fx.fillStyle=p.color;fx.beginPath();fx.moveTo(0,-s);fx.lineTo(s*.55,0);fx.lineTo(0,s);fx.lineTo(-s*.55,0);fx.closePath();fx.fill();
-        fx.fillStyle='rgba(255,255,255,.7)';fx.beginPath();fx.moveTo(0,-s);fx.lineTo(s*.55,0);fx.lineTo(0,0);fx.closePath();fx.fill()}
+      const a=1-p.life/p.max;
+      if(p.kind==='streak'){p.px=p.x;p.py=p.y;p.x+=p.vx;p.y+=p.vy;p.vx*=.9;p.vy=p.vy*.9+.25;
+        fx.globalAlpha=a;fx.strokeStyle=p.color;fx.lineWidth=3*a+.5;fx.beginPath();fx.moveTo(p.px-p.vx*1.5,p.py-p.vy*1.5);fx.lineTo(p.x,p.y);fx.stroke();continue}
+      if(p.kind==='glow'){const r=p.sz*(1+p.life/p.max*1.5);const g=fx.createRadialGradient(p.x,p.y,0,p.x,p.y,r);g.addColorStop(0,'rgba(255,255,255,'+a+')');g.addColorStop(.4,p.color);g.addColorStop(1,'rgba(0,0,0,0)');
+        fx.globalAlpha=a*.8;fx.fillStyle=g;fx.beginPath();fx.arc(p.x,p.y,r,0,6.28);fx.fill();continue}
+      p.x+=p.vx;p.y+=p.vy;p.vy+=p.kind==='shard'?.38:0;p.vx*=.985;p.rot+=p.vr;
+      fx.globalAlpha=Math.min(1,a*1.4);fx.save();fx.translate(p.x,p.y);fx.rotate(p.rot);
+      if(p.kind==='shard'){const q=p.pts;fx.fillStyle=p.color;fx.beginPath();fx.moveTo(q[0][0],q[0][1]);fx.lineTo(q[1][0],q[1][1]);fx.lineTo(q[2][0],q[2][1]);fx.closePath();fx.fill();
+        // 유리 반사: 깜빡이는 흰 모서리
+        fx.fillStyle=`rgba(255,255,255,${.35+.45*Math.abs(Math.sin(p.life*.5+p.rot))})`;fx.beginPath();fx.moveTo(q[0][0],q[0][1]);fx.lineTo(q[1][0],q[1][1]);fx.lineTo(0,0);fx.closePath();fx.fill()}
       else{const s=p.sz*a;fx.fillStyle='#fff';fx.beginPath();for(let k=0;k<8;k++){const r=k%2?s*.18:s,an=k*Math.PI/4;fx.lineTo(Math.cos(an)*r,Math.sin(an)*r)}fx.closePath();fx.fill()}
       fx.restore();
     }
@@ -442,7 +542,7 @@ const N=8,GEMS=['#ff2e63','#ffb020','#19d38a','#2f7bff','#a14bff','#ff5fc8','#22
 const SHAPES=[
  [[0,0]],[[0,0],[0,1]],[[0,0],[1,0]],[[0,0],[0,1],[0,2]],[[0,0],[1,0],[2,0]],
  [[0,0],[0,1],[0,2],[0,3]],[[0,0],[1,0],[2,0],[3,0]],[[0,0],[0,1],[0,2],[0,3],[0,4]],[[0,0],[1,0],[2,0],[3,0],[4,0]],
- [[0,0],[0,1],[1,0],[1,1]],[[0,0],[0,1],[0,2],[1,0],[1,1],[1,2],[2,0],[2,1],[2,2]],
+ [[0,0],[0,1],[1,0],[1,1]],
  [[0,0],[0,1],[0,2],[1,0],[1,1],[1,2]],[[0,0],[1,0],[2,0],[0,1],[1,1],[2,1]],
  [[0,0],[1,0],[1,1]],[[0,1],[1,0],[1,1]],[[0,0],[0,1],[1,0]],[[0,0],[0,1],[1,1]],
  [[0,0],[1,0],[2,0],[2,1]],[[0,1],[1,1],[2,1],[2,0]],[[0,0],[0,1],[0,2],[1,0]],[[0,0],[0,1],[0,2],[1,2]],
@@ -480,8 +580,23 @@ function drawCombo(bump){
     boardEl.classList.add('flash');setTimeout(()=>boardEl.classList.remove('flash'),400);
     if(combo>=3&&!reduce){boardEl.classList.remove('shake');void boardEl.offsetWidth;boardEl.classList.add('shake')}}
 }
-try{best=+localStorage.getItem('bf-best')||0}catch(e){}
-bestEl.textContent=best;
+// 모드: classic(줄만) / zone(줄 + 4×4 구역). 최고 점수는 모드마다 따로
+let mode='classic';
+const bestKey=()=>mode==='zone'?'bf-best-zone':'bf-best';
+function loadBest(){best=0;try{best=+localStorage.getItem(bestKey())||0}catch(e){}bestEl.textContent=best}
+loadBest();
+// 꽉 찬 줄·구역 찾기 (t: 8×8 판)
+function findFull(t){
+  const rows=[],cols=[],zones=[];
+  for(let k=0;k<N;k++){if(t[k].every(Boolean))rows.push(k);if(t.every(r=>r[k]))cols.push(k)}
+  if(mode==='zone')for(let zr=0;zr<2;zr++)for(let zc=0;zc<2;zc++){
+    let full=true;for(let r=0;r<4&&full;r++)for(let c=0;c<4;c++)if(!t[zr*4+r][zc*4+c]){full=false;break}
+    if(full)zones.push([zr,zc])}
+  const kill=new Set();
+  rows.forEach(y=>{for(let x=0;x<N;x++)kill.add(y*N+x)});cols.forEach(x=>{for(let y=0;y<N;y++)kill.add(y*N+x)});
+  zones.forEach(([zr,zc])=>{for(let r=0;r<4;r++)for(let c=0;c<4;c++)kill.add((zr*4+r)*N+zc*4+c)});
+  return{lines:rows.length+cols.length,zones:zones.length,kill};
+}
 
 for(let i=0;i<N*N;i++){const d=document.createElement('div');d.className='c';boardEl.insertBefore(d,toast);cells.push(d)}
 
@@ -505,9 +620,8 @@ function render(ghost){
   if(ghost){ghost.p.s.forEach(([dr,dc])=>g.add((ghost.r+dr)*N+ghost.c+dc));
     // 놓으면 지워질 줄 미리 보기
     const t=grid.map(r=>r.slice());ghost.p.s.forEach(([dr,dc])=>t[ghost.r+dr][ghost.c+dc]=1);
-    for(let i=0;i<N;i++){if(t[i].every(Boolean))for(let j=0;j<N;j++)clr.add(i*N+j);if(t.every(r=>r[i]))for(let j=0;j<N;j++)clr.add(j*N+i)}}
-  cells.forEach((d,i)=>{const v=grid[i/N|0][i%N];d.className='c';d.style.removeProperty('--g');
-    if(v){d.classList.add('gem');d.style.setProperty('--g',clr.has(i)?ghost.p.color:v)}
+    findFull(t).kill.forEach(k=>clr.add(k))}
+  cells.forEach((d,i)=>{const v=grid[i/N|0][i%N];d.className='c';d.style.removeProperty('--g');    if(v){d.classList.add('gem');d.style.setProperty('--g',clr.has(i)?ghost.p.color:v)}
     else if(g.has(i)){d.classList.add('gem','ghost');d.style.setProperty('--g',ghost.p.color)}
     if(clr.has(i))d.classList.add('hint')});
   scoreEl.textContent=score;
@@ -557,21 +671,25 @@ function end(){
   if(!t){sfx.cancel();render();return}
   sfx.place();
   p.s.forEach(([dr,dc])=>grid[t.r+dr][t.c+dc]=p.color);score+=p.s.length;pieces[i]=null;
-  const rows=[],cols=[];
-  for(let k=0;k<N;k++){if(grid[k].every(Boolean))rows.push(k);if(grid.every(r=>r[k]))cols.push(k)}
-  const lines=rows.length+cols.length;
+  const F=findFull(grid),kill=F.kill,lines=F.lines+F.zones;
   if(lines){combo++;startComboTimer();drawCombo(true);const gain=lines*10*lines*combo;score+=gain;
-    const kill=new Set();rows.forEach(y=>{for(let x=0;x<N;x++)kill.add(y*N+x)});cols.forEach(x=>{for(let y=0;y<N;y++)kill.add(y*N+x)});
     sfx.clear(lines,combo);render();
-    kill.forEach(k=>{const b=cells[k].getBoundingClientRect();burst(b.left+b.width/2,b.top+b.height/2,grid[k/N|0][k%N],reduce?3:7+Math.min(combo,6))});
-    kill.forEach(k=>cells[k].classList.add('pop'));
-    say(lines>1?`${lines}줄! +${gain}`:combo>1?`콤보 ×${combo} +${gain}`:`+${gain}`);
-    setTimeout(()=>{kill.forEach(k=>grid[k/N|0][k%N]=null);after()},230);
+    // 1단계: 보석이 하얗게 금이 가며 번쩍 → 2단계(0.07초 뒤): 산산조각
+    const pts=[...kill].map(k=>{const b=cells[k].getBoundingClientRect();return{k,x:b.left+b.width/2,y:b.top+b.height/2,c:grid[k/N|0][k%N]}});
+    const cx=pts.reduce((a,p)=>a+p.x,0)/pts.length,cy=pts.reduce((a,p)=>a+p.y,0)/pts.length,power=lines+Math.min(combo,6)*.4;
+    kill.forEach(k=>cells[k].classList.add('crack'));
+    setTimeout(()=>{
+      pts.forEach(p=>burst(p.x,p.y,p.c,Math.min(1.8,.8+power*.2),cx,cy));
+      blast(cx,cy,pts[0].c,power);
+      kill.forEach(k=>{cells[k].classList.remove('crack');cells[k].classList.add('pop')});
+    },70);
+    say(F.zones&&F.lines?`구역+줄! +${gain}`:F.zones?`구역 클리어! +${gain}`:lines>1?`${lines}줄! +${gain}`:combo>1?`콤보 ×${combo} +${gain}`:`+${gain}`);
+    setTimeout(()=>{kill.forEach(k=>grid[k/N|0][k%N]=null);after()},300);
   }else{render();after()}
 }
 function after(){
   if(pieces.every(x=>!x))deal();else renderTray();render();
-  if(score>best){best=score;bestEl.textContent=best;try{localStorage.setItem('bf-best',best)}catch(e){}}
+  if(score>best){best=score;bestEl.textContent=best;try{localStorage.setItem(bestKey(),best)}catch(e){}}
   if(!pieces.some(p=>p&&canPlaceAny(p))){document.getElementById('final').textContent=`점수 ${score}`;document.getElementById('over').hidden=false;combo=0;drawCombo();sfx.over()}
 }
 let tt;function say(m){toast.textContent=m;toast.classList.add('show');clearTimeout(tt);tt=setTimeout(()=>toast.classList.remove('show'),800)}
@@ -584,7 +702,16 @@ const fullBtn=document.getElementById('full');
 function markFull(){fullBtn.textContent=isFull()?'창 모드':'전체화면'}
 document.addEventListener('fullscreenchange',markFull);document.addEventListener('webkitfullscreenchange',markFull);
 fullBtn.onclick=()=>isFull()?exitFull():enterFull();
-document.getElementById('go').onclick=()=>{enterFull();initAudio();document.getElementById('start').hidden=true;paused=false;if(combo)startComboTimer()};
+const startEl=document.getElementById('start'),chip=document.getElementById('modeChip');
+function startGame(m){
+  enterFull();initAudio();
+  mode=m;boardEl.classList.toggle('zone',m==='zone');
+  chip.textContent=m==='zone'?'구역 모드':'클래식';chip.classList.toggle('zone',m==='zone');
+  loadBest();newGame();startEl.hidden=true;paused=false;
+}
+document.getElementById('goClassic').onclick=()=>startGame('classic');
+document.getElementById('goZone').onclick=()=>startGame('zone');
+document.getElementById('modeBtn').onclick=()=>{paused=true;startEl.hidden=false};
 
 document.querySelectorAll('.music button').forEach(b=>b.onclick=()=>{initAudio();setTrack(b.dataset.t)});markTrack();
 document.getElementById('again').onclick=newGame;document.getElementById('reset').onclick=newGame;
